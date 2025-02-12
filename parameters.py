@@ -47,8 +47,8 @@ def get_params(argv='1'):
 
         # DNN MODEL PARAMETERS
         label_sequence_length=50,    # Feature sequence length
-        batch_size=64,              # Batch size
-        eval_batch_size=64,
+        batch_size=16,              # Batch size
+        eval_batch_size=4,
         dropout_rate=0.05,           # Dropout rate, constant for all layers
         nb_cnn2d_filt=64,           # Number of CNN nodes, constant for each layer
         f_pool_size=[4, 4, 2],      # CNN frequency pooling, length of list = number of CNN layers, list value = pooling per layer
@@ -149,7 +149,7 @@ def get_params(argv='1'):
         params['label_sequence_length'] = 1 # use only one time frame for tdoa training
         params['feature_sequence_length'] = params['label_sequence_length'] * params['feature_label_resolution']
         params['raw_chunks'] = True
-        params['pretrained_model_weights'] = 'blah.h5'
+        params['pretrained_model_weights'] = 'models/333_cst-3t16c.h5'
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = False

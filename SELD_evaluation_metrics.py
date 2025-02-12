@@ -9,7 +9,7 @@
 # IEEE/ACM Transactions on Audio, Speech, and Language Processing (2020).
 #
 # This script has MIT license
-#
+#   
 
 import numpy as np
 

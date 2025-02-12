@@ -288,7 +288,7 @@ if __name__ == "__main__":
     # Compute just the DCASE final results
     use_jackknife = False
     eval_dist = params['evaluate_distance'] if 'evaluate_distance' in params else False
-    score_obj = ComputeSELDResults(params, ref_files_folder='metadata_eval_shuffled')
+    score_obj = ComputeSELDResults(params, ref_files_folder='data_2024/metadata_dev')
     if eval_dist:
         ER, F, AngE, DistE, RelsDistE, LR, seld_scr, classwise_test_scr = score_obj.get_SELD_Results(pred_output_format_files,
                                                                                                      is_jackknife=use_jackknife)
