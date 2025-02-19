@@ -13,10 +13,10 @@ def get_params(argv='1'):
         finetune_mode=False,  # Finetune on existing model, requires the pretrained model path set - pretrained_model_weights
 
         # INPUT PATH
-        dataset_dir='./data_2024/',  # Base folder containing the foa/mic and metadata folders
+        dataset_dir='../../../data/data_2024/',  # Base folder containing the foa/mic and metadata folders
 
         # OUTPUT PATHS
-        feat_label_dir='./data_2024/seld_feat_label/',  # Directory to dump extracted features and labels
+        feat_label_dir='../../../data/data_2024/seld_feat_label/',  # Directory to dump extracted features and labels
 
         model_dir='models',  # Dumps the trained models and training curves in this folder
         dcase_output_dir='results',  # recording-wise results are dumped in this path.
@@ -61,9 +61,9 @@ def get_params(argv='1'):
         nb_fnn_layers=1,
         fnn_size=128,  # FNN contents, length of list = number of layers, list value = number of nodes
 
-        nb_epochs=300,  # Train for maximum epochs
+        nb_epochs=1,  # Train for maximum epochs
         eval_freq=25, # evaluate every x epochs
-        lr=1e-3,
+        lr=0,
         final_lr=1e-5, # final learning rate in cosine scheduler
         weight_decay=0.05,
         predict_tdoa=False,
@@ -149,7 +149,7 @@ def get_params(argv='1'):
         params['label_sequence_length'] = 1 # use only one time frame for tdoa training
         params['feature_sequence_length'] = params['label_sequence_length'] * params['feature_label_resolution']
         params['raw_chunks'] = True
-        params['pretrained_model_weights'] = 'blah.h5'
+        params['pretrained_model_weights'] = 'models/9_tdoa-3tracks-16channels.h5'
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = False
@@ -254,14 +254,14 @@ def get_params(argv='1'):
         params['ChAtten_ULE'] = True
         params['CMT_block'] = True
 
-        params["f_pool_size"] = [1,2,2] # change to [1, 1, 1] to use the "Large" version
+        params["f_pool_size"] = [1,1,1] # change to [1, 1, 1] to use the "Large" version #[1,2,2]
         params['t_pool_size'] = [1,1, params['feature_label_resolution']]
         params['nb_fnn_layers'] = 1
         params['fnn_size'] = 256
 
         params['finetune_mode'] = True
         params['raw_chunks'] = True
-        params['pretrained_model_weights'] = 'models/9_tdoa-3tracks-16channels.h5' 
+        params['pretrained_model_weights'] = 'models/333_cst-3t16c-large.h5' 
         params['dataset'] = 'mic'
         params['n_mics'] = 4
         params['ngcc_channels'] = 32

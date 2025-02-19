@@ -58,8 +58,7 @@ def get_model_and_sizes(params, data_gen, device):
         model = NGCCModel(data_in, data_out, params, vid_data_in).to(device)
 
     elif params['model'] == 'cstformer':
-        model = CST_former(data_in, data_out, params, vid_data_in).to(device)
-            
+        model = CST_former(data_in, data_out, params, vid_data_in)  # 모델 생성
     else:
         print('ERROR: Unknown model configuration')
         exit()
@@ -623,7 +622,7 @@ def main(argv):
               'You can use any number or string for this.')
         print('-------------------------------------------------------------------------------------------------------')
         print('\n\n')
-
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     torch.autograd.set_detect_anomaly(True)
@@ -731,8 +730,8 @@ def main(argv):
                     model_dict = model.state_dict()
                     state_dict = {k: v for k, v in state_dict.items() if
                         (k in model_dict) and (model_dict[k].shape == state_dict[k].shape)}
-                model.load_state_dict(state_dict, strict=False)
-
+                model.load_state_dict(state_dict, strict=True)
+                model = nn.DataParallel(model).to(device)
 
             log_string('---------------- SELD-net -------------------')
             log_string('FEATURES:\n\tdata_in: {}\n\tdata_out: {}\n'.format(data_in, data_out))
@@ -797,6 +796,7 @@ def main(argv):
             val_loss = np.nan
 
             for epoch_cnt in range(nb_epoch):
+                break
                 # ---------------------------------------------------------------------
                 # Evaluate on unseen test data
                 # ---------------------------------------------------------------------
@@ -855,6 +855,7 @@ def main(argv):
             # Evaluate on unseen test data
             # ---------------------------------------------------------------------
             # don't load best model, this is cherry picking
+            print("TEST")
             log_string('Not loading best model weights, using final model weights instead')
             #log_string('Load best model weights')
             #model.load_state_dict(torch.load(model_name, map_location='cpu'))
