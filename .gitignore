@@ -1,0 +1,38 @@
+# Data
+data_2024/
+data/
+datasets/
+
+# Models and checkpoints
+models/
+models_audio/
+*.h5
+*.pth
+*.pt
+
+# Logs and results
+logs/
+results_audio/
+results/
+
+# Cache
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Audio files
+*.wav
+*.mp3
+
+# Large files
+*.npy
+*.npz
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.png
+*.jpg
+*.jpeg
