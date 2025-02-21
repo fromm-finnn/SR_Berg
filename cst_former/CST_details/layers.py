@@ -92,31 +92,34 @@ class FC_layer(torch.nn.Module):
 #####################################################################################################################
 
 class LocalPerceptionUint(torch.nn.Module):
-    def __init__(self, dim, act=False):
-        super(LocalPerceptionUint, self).__init__()
-        self.act = act
-        self.conv_3x3_dw = ConvDW3x3(dim)
-        if self.act:
-            self.actation = nn.Sequential(
-                nn.GELU(),
-                nn.BatchNorm2d(dim)
-            )
-
+    def __init__(self, dim, kernel_size=3):
+        super().__init__()
+        self.dim = dim
+        self.kernel_size = kernel_size
+        
+        self.conv_3x3_dw = nn.Conv2d(
+            in_channels=dim,
+            out_channels=dim,
+            kernel_size=kernel_size,
+            padding=kernel_size//2,
+            groups=dim  # depthwise convolution
+        )
+        
+        self.bn = nn.BatchNorm2d(dim)
+        self.act = nn.GELU()
+        
         self.initialize_weights()
 
     def initialize_weights(self):
         for m in self.modules():
-            if isinstance(m, nn.BatchNorm2d):
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight.data, nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.bias, 0)
                 nn.init.constant_(m.weight, 1.0)
 
     def forward(self, x):
-        if self.act:
-            out = self.actation(self.conv_3x3_dw(x))
-            return out
-        else:
-            out = self.conv_3x3_dw(x)
-            return out
+        return self.act(self.bn(self.conv_3x3_dw(x)))
 
 class InvertedResidualFeedForward(torch.nn.Module):
     def __init__(self, dim, dim_ratio=4.):
@@ -417,17 +420,24 @@ class SEBasicBlock(nn.Module):
 class Spec_attention(torch.nn.Module):
     def __init__(self, temp_embed_dim, params):
         super().__init__()
-        # self.params = params
-        self.dropout_rate = params['dropout_rate']
-        self.linear_layer = params['linear_layer']
+        # 파라미터 직접 저장
+        self.dropout_rate = params.get('dropout_rate', 0.1)
+        self.linear_layer = params.get('linear_layer', True)
         self.temp_embed_dim = temp_embed_dim
+        self.nb_heads = params.get('nb_heads', 8)
+        self.nb_cnn2d_filt = params.get('nb_cnn2d_filt', 64)
 
-        # Spectral attention -------------------------------------------------------------------------------#
-        self.sp_attn_embed_dim = params['nb_cnn2d_filt']  # 64
-        self.sp_mhsa = nn.MultiheadAttention(embed_dim=self.sp_attn_embed_dim, num_heads=params['nb_heads'],
-                                  dropout=params['dropout_rate'], batch_first=True)
+        # Spectral attention
+        self.sp_attn_embed_dim = self.nb_cnn2d_filt
+        self.sp_mhsa = nn.MultiheadAttention(
+            embed_dim=self.sp_attn_embed_dim, 
+            num_heads=self.nb_heads,
+            dropout=self.dropout_rate, 
+            batch_first=True
+        )
         self.sp_layer_norm = nn.LayerNorm(self.temp_embed_dim)
-        if self.params['LinearLayer']:
+        
+        if self.linear_layer:
             self.sp_linear = nn.Linear(self.sp_attn_embed_dim, self.sp_attn_embed_dim)
 
         self.activation = nn.GELU()
@@ -436,12 +446,10 @@ class Spec_attention(torch.nn.Module):
         self.initialize_weights()
 
     def initialize_weights(self):
-        # initialization
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            # we use xavier_uniform following official JAX ViT:
             torch.nn.init.xavier_uniform_(m.weight)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
@@ -451,34 +459,48 @@ class Spec_attention(torch.nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def forward(self,x, C, T, F):
+    def forward(self, x, C, T, F):
         # spectral attention
         x_init = x
-        x_attn_in = rearrange(x_init, ' b t (f c) -> (b t) f c', c=C,f=F).contiguous()
+        x_attn_in = rearrange(x_init, 'b t (f c) -> (b t) f c', c=C, f=F).contiguous()
         xs, _ = self.sp_mhsa(x_attn_in, x_attn_in, x_attn_in)
-        xs = rearrange(xs, ' (b t) f c -> b t (f c)', t=T).contiguous()
+        xs = rearrange(xs, '(b t) f c -> b t (f c)', t=T).contiguous()
+        
         if self.linear_layer:
             xs = self.activation(self.sp_linear(xs))
         xs = xs + x_init
-        if self.dropout_rate:
+        
+        if self.dropout_rate > 0:
             xs = self.drop_out(xs)
+            
         x_out = self.sp_layer_norm(xs)
         return x_out
 
 class Temp_attention(torch.nn.Module):
     def __init__(self, temp_embed_dim, params):
         super().__init__()
-        # self.params = params
-        self.dropout_rate = params['dropout_rate']
-        self.linear_layer = params['linear_layer']
+        # 파라미터 직접 저장
+        self.dropout_rate = params.get('dropout_rate', 0.1)
+        self.linear_layer = params.get('linear_layer', True)
         self.temp_embed_dim = temp_embed_dim
-        self.embed_dim_4_freq_attn = params['nb_cnn2d_filt']  # Update the temp embedding if freq attention is applied
-        # temporal attention -----------------------------------------------------------------------------------#
-        self.temp_mhsa = nn.MultiheadAttention(embed_dim=self.embed_dim_4_freq_attn if params['FreqAtten'] else self.temp_embed_dim,
-                                  num_heads=params['nb_heads'],
-                                  dropout=params['dropout_rate'], batch_first=True)
+        self.nb_heads = params.get('nb_heads', 8)
+        self.nb_cnn2d_filt = params.get('nb_cnn2d_filt', 64)
+        self.freq_atten = params.get('FreqAtten', True)
+        
+        # 임베딩 차원 설정
+        self.embed_dim_4_freq_attn = self.nb_cnn2d_filt
+        
+        # temporal attention
+        self.temp_mhsa = nn.MultiheadAttention(
+            embed_dim=self.embed_dim_4_freq_attn if self.freq_atten else self.temp_embed_dim,
+            num_heads=self.nb_heads,
+            dropout=self.dropout_rate, 
+            batch_first=True
+        )
+        
         self.temp_layer_norm = nn.LayerNorm(self.temp_embed_dim)
-        if self.params['LinearLayer']:
+        
+        if self.linear_layer:
             self.temp_linear = nn.Linear(self.temp_embed_dim, self.temp_embed_dim)
 
         self.activation = nn.GELU()
@@ -487,12 +509,10 @@ class Temp_attention(torch.nn.Module):
         self.initialize_weights()
 
     def initialize_weights(self):
-        # initialization
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            # we use xavier_uniform following official JAX ViT:
             torch.nn.init.xavier_uniform_(m.weight)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
@@ -502,16 +522,19 @@ class Temp_attention(torch.nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def forward(self,x, C, T, F):
+    def forward(self, x, C, T, F):
         # temporal attention
         x_init = x
-        xt = rearrange(x_init, ' b t (f c) -> (b f) t c', c=C).contiguous()
+        xt = rearrange(x_init, 'b t (f c) -> (b f) t c', c=C).contiguous()
         xt, _ = self.temp_mhsa(xt, xt, xt)
-        xt = rearrange(xt, ' (b f) t c -> b t (f c)', f=F).contiguous()
+        xt = rearrange(xt, '(b f) t c -> b t (f c)', f=F).contiguous()
+        
         if self.linear_layer:
             xt = self.activation(self.temp_linear(xt))
         xt = xt + x_init
-        if self.dropout_rate:
+        
+        if self.dropout_rate > 0:
             xt = self.drop_out(xt)
+            
         x_out = self.temp_layer_norm(xt)
         return x_out

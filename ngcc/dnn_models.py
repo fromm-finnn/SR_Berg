@@ -10,8 +10,18 @@ import torch.nn.functional as F
 import torch.nn as nn
 from torch.autograd import Variable
 import math
-from torch_same_pad import get_pad
+# from torch_same_pad import get_pad
 
+def get_pad(size, kernel_size, stride=1, dilation=1):
+    """Calculate same padding for given input size, kernel size and stride."""
+    # Calculate output size
+    out_size = (size + stride - 1) // stride
+    # Calculate total padding
+    pad = max(0, (out_size - 1) * stride + (kernel_size-1) * dilation + 1 - size)
+    # Calculate padding on each side
+    pad_1 = pad // 2
+    pad_2 = pad - pad_1
+    return (pad_1, pad_2)
 
 def flip(x, dim):
     xsize = x.size()
