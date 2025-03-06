@@ -63,7 +63,7 @@ class FC_layer(torch.nn.Module):
                 self.fnn_list.append(
                     nn.Linear(params['fnn_size'] if fc_cnt else temp_embed_dim, params['fnn_size'], bias=True))
         self.fnn_list.append(
-            nn.Linear(params['fnn_size'] if params['nb_fnn_layers'] else temp_embed_dim, out_shape[-1],
+            nn.Linear(params['fnn_size'] if params['nb_fnn_layers'] else temp_embed_dim, out_shape[-1], 
                       bias=True))
 
         self.doa_act = nn.Tanh()

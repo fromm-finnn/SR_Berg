@@ -38,7 +38,7 @@ def seed_everything(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def get_model_and_sizes(params, data_gen, device):
+def get_model_and_sizes(params, data_gen, device): #data_gen은 ? train_gen
     # Collect i/o data size and load model configuration
 
     if params['modality'] == 'audio_visual':
@@ -403,8 +403,10 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
     nb_test_batches, test_loss = 0, 0.
     model.eval()
     file_cnt = 0
+    all_latency = []
     with torch.no_grad():
         for values in data_generator.generate():
+            start_time = time.time()
             if len(values) == 2:
                 data, target = values
                 data, target = torch.tensor(data).to(device).float(), torch.tensor(target).to(device).float()
@@ -412,7 +414,7 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
                 if data.shape[0] > bs and params['raw_chunks']:
                     max_cnt = data.shape[0] // bs
                     output = []
-                    output_tdoa = []
+                    output_tdoa = [] 
                     for cnt in range(0, max_cnt):
                         this_data = data[cnt*bs:(cnt+1)*bs]
                         if criterion_tdoa is not None:
@@ -435,17 +437,19 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
                     
                     output = torch.cat(output, dim=0)
                     
-
                 else:
                     if criterion_tdoa is not None:
                         output, output_tdoa = model(data)
                     else:
-                        output = model(data)
+                        output = model(data) #doa
+ 
             elif len(values) == 3:
                 data, vid_feat, target = values
                 data, vid_feat, target = torch.tensor(data).to(device).float(), torch.tensor(vid_feat).to(device).float(), torch.tensor(target).to(device).float()
                 output = model(data, vid_feat)
 
+            latency = time.time() - start_time
+            all_latency.append(latency)
             if criterion_tdoa is not None:
                 loss1 = criterion(output, target)
                 loss2, acc = criterion_tdoa(output_tdoa, target)
@@ -539,7 +543,8 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
 
 
         test_loss /= nb_test_batches
-
+        avg_latency = sum(all_latency) / len(all_latency)
+        print(f"🔥 Average Latency: {avg_latency:.4f} seconds") 
     return test_loss
 
 
@@ -622,7 +627,6 @@ def main(argv):
               'You can use any number or string for this.')
         print('-------------------------------------------------------------------------------------------------------')
         print('\n\n')
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     torch.autograd.set_detect_anomaly(True)
@@ -732,6 +736,8 @@ def main(argv):
                         (k in model_dict) and (model_dict[k].shape == state_dict[k].shape)}
                 model.load_state_dict(state_dict, strict=True)
                 model = nn.DataParallel(model).to(device)
+                
+
 
             log_string('---------------- SELD-net -------------------')
             log_string('FEATURES:\n\tdata_in: {}\n\tdata_out: {}\n'.format(data_in, data_out))
@@ -796,7 +802,7 @@ def main(argv):
             val_loss = np.nan
 
             for epoch_cnt in range(nb_epoch):
-                break
+                
                 # ---------------------------------------------------------------------
                 # Evaluate on unseen test data
                 # ---------------------------------------------------------------------
@@ -851,6 +857,7 @@ def main(argv):
                 if patience_cnt > params['patience']:
                     break
 
+            
             # ---------------------------------------------------------------------
             # Evaluate on unseen test data
             # ---------------------------------------------------------------------
@@ -908,16 +915,23 @@ def main(argv):
 
         LOG_FOUT.close()
 
-    if params['mode'] == 'eval':
+
+#### INFERENCE
+
+
+    if params['mode'] == 'eval': #mode -> eval
 
         print('Loading evaluation dataset:')
+
         data_gen_eval = cls_data_generator.DataGenerator(
-            params=params, shuffle=False, per_file=True, is_eval=True)
+            params=params, shuffle=False, per_file=True, is_eval=True) #UNSEEN DATA is_eval = True dataset 내부 eval 포함되어 있는 데이터셋 불러옴
+
 
         model, data_in, vid_data_in, data_out = get_model_and_sizes(params, data_gen_eval, device)
 
         print('Load final model weights from:' + params['pretrained_model_weights'])
-        model.load_state_dict(torch.load(params['pretrained_model_weights'], map_location='cpu'))
+        model.load_state_dict(torch.load(params['pretrained_model_weights'], map_location='cpu'), strict = True)
+        model = nn.DataParallel(model).to(device)
 
         # Dump results in DCASE output format for calculating final scores
         loc_output = 'multiaccdoa' if params['multi_accdoa'] else 'accdoa'
@@ -927,8 +941,18 @@ def main(argv):
         print('Dumping recording-wise eval results in: {}'.format(dcase_output_test_folder))
 
         eval_epoch(data_gen_eval, model, dcase_output_test_folder, params, device)
+        
+'''        
+        score_obj = ComputeSELDResults(params)
+        use_jackknife=True
+        eval_ER, eval_F, eval_LE, eval_dist_err, eval_rel_dist_err, eval_LR, eval_seld_scr, classwise_eval_scr = score_obj.get_SELD_Results(dcase_output_test_folder, is_jackknife=use_jackknife )
 
-
+        print('SELD score (early stopping metric): {:0.2f} {}'.format(eval_seld_scr[0] if use_jackknife else eval_seld_scr, '[{:0.2f}, {:0.2f}]'.format(eval_seld_scr[1][0], eval_seld_scr[1][1]) if use_jackknife else ''))
+        print('SED metrics: F-score: {:0.1f} {}'.format(100* eval_F[0]  if use_jackknife else 100* eval_F, '[{:0.2f}, {:0.2f}]'.format(100* eval_F[1][0], 100* eval_F[1][1]) if use_jackknife else ''))
+        print('DOA metrics: Angular error: {:0.1f} {}'.format(eval_LE[0] if use_jackknife else eval_LE, '[{:0.2f} , {:0.2f}]'.format(eval_LE[1][0], eval_LE[1][1]) if use_jackknife else ''))
+        print('Distance metrics: {:0.2f} {}'.format(eval_dist_err[0] if use_jackknife else eval_dist_err, '[{:0.2f} , {:0.2f}]'.format(eval_dist_err[1][0], eval_dist_err[1][1]) if use_jackknife else ''))
+        print('Relative Distance metrics: {:0.2f} {}'.format(eval_rel_dist_err[0] if use_jackknife else eval_rel_dist_err, '[{:0.2f} , {:0.2f}]'.format(eval_rel_dist_err[1][0], eval_rel_dist_err[1][1]) if use_jackknife else ''))
+'''
                     
 if __name__ == "__main__":
     try:

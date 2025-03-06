@@ -105,7 +105,6 @@ class CST_former(torch.nn.Module):
             x = self.t_pooling(x)
 
         doa = self.fc_layer(x)
-
         if self.predict_tdoa:
             return doa, tdoa[:, ::self.pool_len] # pool tdoas to get correct resolution
         else:

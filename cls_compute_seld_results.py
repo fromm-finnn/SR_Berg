@@ -50,7 +50,7 @@ class ComputeSELDResults(object):
     def __init__(self, params, ref_files_folder=None):
         self._desc_dir = ref_files_folder if ref_files_folder is not None else os.path.join(params['dataset_dir'],
                                                                                             'metadata_dev')
-        self._doa_thresh = params['lad_doa_thresh']
+        self._doa_thresh = params['lad_doa_thresh'] # 20
         self._dist_thresh = params['lad_dist_thresh']  if 'lad_dist_thresh' in params else float('inf')
         self._reldist_thresh = params['lad_reldist_thresh'] if 'lad_reldist_thresh' in params else float('inf')
         self.segment_level = params['segment_based_metrics'] if 'segment_based_metrics' in params else True
@@ -62,7 +62,7 @@ class ComputeSELDResults(object):
 
         # collect reference files
         self._ref_labels = {}
-        for split in os.listdir(self._desc_dir):
+        for split in os.listdir(self._desc_dir): #_desc_dir : metadata / 경로에서 정보들을 받아오는 부분
             for ref_file in os.listdir(os.path.join(self._desc_dir, split)):
                 # Load reference description file
                 gt_dict = self._feat_cls.load_output_format_file(os.path.join(self._desc_dir, split, ref_file), cm2m=True)  # TODO: Reconsider the cm2m conversion
@@ -116,7 +116,7 @@ class ComputeSELDResults(object):
                                     doa_threshold=self._doa_thresh, average=self._average, eval_dist=self.evaluate_distance,
                                     dist_threshold=self._dist_thresh, reldist_threshold=self._reldist_thresh)
 
-        for pred_cnt, pred_file in enumerate(pred_files):
+        for pred_cnt, pred_file in enumerate(pred_files): ##results_audio : csv files들
             # Load predicted output format file
             pred_dict = self._feat_cls.load_output_format_file(os.path.join(pred_files_path, pred_file))
             pred_dict = self._feat_cls.convert_output_format_polar_to_cartesian(pred_dict)
@@ -128,7 +128,7 @@ class ComputeSELDResults(object):
                 #print(pred_labels.values().shape)
                 # pred_labels[frame-index][class-index][track-index] := [azimuth, elevation]
             # Calculated scores
-            eval.update_seld_scores(pred_labels, self._ref_labels[pred_file][0], eval_dist=self.evaluate_distance)
+            eval.update_seld_scores(pred_labels, self._ref_labels[pred_file][0], eval_dist=self.evaluate_distance) #pred, gt, true
             if is_jackknife:
                 pred_labels_dict[pred_file] = pred_labels
         # Overall SED and DOA scores

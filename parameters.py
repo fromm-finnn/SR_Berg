@@ -47,7 +47,7 @@ def get_params(argv='1'):
 
         # DNN MODEL PARAMETERS
         label_sequence_length=50,    # Feature sequence length
-        batch_size=64,              # Batch size
+        batch_size=64,              # Batch size 
         eval_batch_size=64,
         dropout_rate=0.05,           # Dropout rate, constant for all layers
         nb_cnn2d_filt=64,           # Number of CNN nodes, constant for each layer
@@ -61,9 +61,9 @@ def get_params(argv='1'):
         nb_fnn_layers=1,
         fnn_size=128,  # FNN contents, length of list = number of layers, list value = number of nodes
 
-        nb_epochs=1,  # Train for maximum epochs
+        nb_epochs=100,  # Train for maximum epochs
         eval_freq=25, # evaluate every x epochs
-        lr=0,
+        lr=1e-5,
         final_lr=1e-5, # final learning rate in cosine scheduler
         weight_decay=0.05,
         predict_tdoa=False,
@@ -254,14 +254,14 @@ def get_params(argv='1'):
         params['ChAtten_ULE'] = True
         params['CMT_block'] = True
 
-        params["f_pool_size"] = [1,1,1] # change to [1, 1, 1] to use the "Large" version #[1,2,2]
+        params["f_pool_size"] = [1,2,2] # change to [1, 1, 1] to use the "Large" version # small : [1,2,2]
         params['t_pool_size'] = [1,1, params['feature_label_resolution']]
         params['nb_fnn_layers'] = 1
         params['fnn_size'] = 256
 
         params['finetune_mode'] = True
         params['raw_chunks'] = True
-        params['pretrained_model_weights'] = 'models/333_cst-3t16c-large.h5' 
+        params['pretrained_model_weights'] = 'models/333_cst-3t16c.h5' 
         params['dataset'] = 'mic'
         params['n_mics'] = 4
         params['ngcc_channels'] = 32
