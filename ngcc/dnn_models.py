@@ -10,8 +10,33 @@ import torch.nn.functional as F
 import torch.nn as nn
 from torch.autograd import Variable
 import math
-from torch_same_pad import get_pad
+# from torch_same_pad import get_pad
 
+def get_pad(size, kernel_size, stride=1, dilation=1):
+    """
+    Calculate padding for 'SAME' padding in conv1d.
+    Args:
+        size: input size
+        kernel_size: kernel size
+        stride: stride
+        dilation: dilation
+    Returns:
+        padding: left and right padding
+    """
+    # Calculate effective kernel size considering dilation
+    effective_kernel_size = (kernel_size - 1) * dilation + 1
+    
+    # Calculate output size
+    out_size = (size + stride - 1) // stride
+    
+    # Calculate padding needed
+    padding_needed = max(0, (out_size - 1) * stride + effective_kernel_size - size)
+    
+    # Calculate left and right padding
+    padding_left = padding_needed // 2
+    padding_right = padding_needed - padding_left
+    
+    return (padding_left, padding_right)
 
 def flip(x, dim):
     xsize = x.size()

@@ -27,6 +27,43 @@ from torchinfo import summary
 from warmup_scheduler import GradualWarmupScheduler
 import random
 
+def measure_sample_latency(model, device, input_shape, num_runs=100):
+    """
+    단일 샘플에 대한 latency를 측정하는 간단한 함수
+    """
+    # 임의의 입력 데이터 생성
+    sample_data = torch.randn(1, *input_shape[1:]).to(device)
+    
+    # 모델을 평가 모드로 설정
+    model.eval()
+    
+    # 웜업
+    with torch.no_grad():
+        _ = model(sample_data)
+    
+    # 측정 시작
+    latencies = []
+    with torch.no_grad():
+        for _ in range(num_runs):
+            if device == 'cuda':
+                torch.cuda.synchronize()
+            
+            start_time = time.time()
+            _ = model(sample_data)
+            
+            if device == 'cuda':
+                torch.cuda.synchronize()
+            
+            end_time = time.time()
+            latencies.append(end_time - start_time)
+    
+    # 결과 계산
+    avg_latency = sum(latencies) / len(latencies)
+    print(f"Average Sample Latency: {avg_latency:.4f} seconds")
+    print(f"Average Sample Latency: {avg_latency * 1000:.2f} ms")
+    
+    return avg_latency
+
 def seed_everything(seed):
     torch.manual_seed(seed)
     random.seed(seed)
@@ -403,10 +440,8 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
     nb_test_batches, test_loss = 0, 0.
     model.eval()
     file_cnt = 0
-    all_latency = []
     with torch.no_grad():
         for values in data_generator.generate():
-            start_time = time.time()
             if len(values) == 2:
                 data, target = values
                 data, target = torch.tensor(data).to(device).float(), torch.tensor(target).to(device).float()
@@ -447,15 +482,7 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
                 data, vid_feat, target = values
                 data, vid_feat, target = torch.tensor(data).to(device).float(), torch.tensor(vid_feat).to(device).float(), torch.tensor(target).to(device).float()
                 output = model(data, vid_feat)
-            latency = time.time() - start_time
-            all_latency.append(latency)
-
-            if criterion_tdoa is not None:
-                loss1 = criterion(output, target)
-                loss2, acc = criterion_tdoa(output_tdoa, target)
-                loss = (1.0 - params['lambda']) * loss1 + params['lambda'] * loss2
-            else:
-                loss = criterion(output, target)
+            loss = criterion(output, target)
 
             if params['multi_accdoa'] is True:
                 sed_pred0, doa_pred0, dist_pred0, sed_pred1, doa_pred1, dist_pred1, sed_pred2, doa_pred2, dist_pred2 = get_multi_accdoa_labels(output.detach().cpu().numpy(), params['unique_classes'])
@@ -543,8 +570,6 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
 
 
         test_loss /= nb_test_batches
-        avg_latency = sum(all_latency) / len(all_latency)
-        print(f"Average Latency: {avg_latency:.4f} seconds") 
     return test_loss
 
 
@@ -708,6 +733,52 @@ def main(argv):
             model_name = '{}_model.h5'.format(os.path.join(params['model_dir'], unique_name))
             model_name_final = '{}_model_final.h5'.format(os.path.join(params['model_dir'], unique_name))
             log_string("unique_name: {}\n".format(unique_name))
+
+            # latency_check 명령어 감지
+            if job_id == 'latency_check':
+                log_string('Performing latency check...')
+                
+                # 데이터 로드
+                data_gen_val = cls_data_generator.DataGenerator(
+                    params=params, split=val_splits[split_cnt], shuffle=False, per_file=True
+                )
+                
+                # 모델 생성
+                model, data_in, vid_data_in, data_out = get_model_and_sizes(params, data_gen_val, device)
+                
+                # 모델 가중치 로드
+                if params['finetune_mode']:
+                    log_string('Loading model weights from: {}'.format(params['pretrained_model_weights']))
+                    state_dict = torch.load(params['pretrained_model_weights'], map_location='cpu')
+                    model.load_state_dict(state_dict, strict=True)
+                
+                model = nn.DataParallel(model).to(device)
+                
+                # 샘플 단위 latency 측정
+                log_string('Measuring sample latency...')
+                avg_latency = measure_sample_latency(model, device, data_in, num_runs=100)
+                
+                # 테스트 데이터셋에서 평가 수행
+                log_string("\nTEST")
+                log_string("Loading unseen test dataset:")
+                data_gen_test = cls_data_generator.DataGenerator(
+                    params=params, split=test_splits[split_cnt], shuffle=False, per_file=True
+                )
+                
+                dcase_output_test_folder = os.path.join(params['dcase_output_dir'], '{}_{}_test'.format(unique_name, strftime("%Y%m%d%H%M%S", gmtime())))
+                cls_feature_class.delete_and_create_folder(dcase_output_test_folder)
+                log_string('Dumping recording-wise test results in: {}'.format(dcase_output_test_folder))
+                
+                # 테스트 실행
+                if params['multi_accdoa'] is True:
+                    criterion = seldnet_model.MSELoss_ADPIT(relative_dist=params['relative_dist'], no_dist=params['no_dist'])
+                else:
+                    criterion = nn.MSELoss()
+                
+                test_loss = test_epoch(data_gen_test, model, criterion, dcase_output_test_folder, params, device)
+                
+                # 프로그램 종료
+                return 0
 
             # Load train and validation data
             log_string('Loading training dataset:')
@@ -960,4 +1031,3 @@ if __name__ == "__main__":
         sys.exit(main(sys.argv))
     except (ValueError, IOError) as e:
         sys.exit(e)
-

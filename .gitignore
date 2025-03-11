@@ -1,0 +1,5 @@
+data_2024/
+__pycache__/
+logs/
+results_audio/
+*.npy

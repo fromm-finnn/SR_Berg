@@ -13,10 +13,10 @@ def get_params(argv='1'):
         finetune_mode=False,  # Finetune on existing model, requires the pretrained model path set - pretrained_model_weights
 
         # INPUT PATH
-        dataset_dir='../../../data/data_2024/',  # Base folder containing the foa/mic and metadata folders
+        dataset_dir='./data_2024/',  # Base folder containing the foa/mic and metadata folders
 
         # OUTPUT PATHS
-        feat_label_dir='../../../data/data_2024/seld_feat_label/',  # Directory to dump extracted features and labels
+        feat_label_dir='./data_2024/seld_feat_label/',  # Directory to dump extracted features and labels
 
         model_dir='models',  # Dumps the trained models and training curves in this folder
         dcase_output_dir='results',  # recording-wise results are dumped in this path.
@@ -47,8 +47,8 @@ def get_params(argv='1'):
 
         # DNN MODEL PARAMETERS
         label_sequence_length=50,    # Feature sequence length
-        batch_size=64,              # Batch size 
-        eval_batch_size=64,
+        batch_size=8,              # Batch size 
+        eval_batch_size=8,
         dropout_rate=0.05,           # Dropout rate, constant for all layers
         nb_cnn2d_filt=64,           # Number of CNN nodes, constant for each layer
         f_pool_size=[4, 4, 2],      # CNN frequency pooling, length of list = number of CNN layers, list value = pooling per layer
@@ -243,10 +243,9 @@ def get_params(argv='1'):
         params['fnn_size'] = 256
 
     elif argv == '333': #CST former with NGCC-PHAT
-        print("[CST-former: Unfolded Local Embedding] FOA + Multi-ACCDOA + CST Unfold + CMT (S dim : 16)\n")
+        print("CST-Former Large w/ NGCC model + multi ACCDOA")
+        params = get_params()
         params['model'] = 'cstformer'
-        params['use_ngcc'] = True
-        params['quick_test'] = False
         params['multi_accdoa'] = True
         params['t_pooling_loc'] = 'front'
 
@@ -254,21 +253,21 @@ def get_params(argv='1'):
         params['ChAtten_ULE'] = True
         params['CMT_block'] = True
 
-        params["f_pool_size"] = [1,2,2] # change to [1, 1, 1] to use the "Large" version # small : [1,2,2]
+        params["f_pool_size"] = [1, 1, 1] # Large version uses [1, 1, 1]
         params['t_pool_size'] = [1,1, params['feature_label_resolution']]
         params['nb_fnn_layers'] = 1
         params['fnn_size'] = 256
 
         params['finetune_mode'] = True
         params['raw_chunks'] = True
-        params['pretrained_model_weights'] = 'models_audio/333_new_dist_dev_split0_multiaccdoa_mic_gcc_model.h5' 
+        params['pretrained_model_weights'] = 'models/333_cst-3t16c-large.h5' 
         params['dataset'] = 'mic'
         params['n_mics'] = 4
         params['ngcc_channels'] = 32
         params['ngcc_out_channels'] = 16
         params['saved_chunks'] = True
         params['use_mel'] = True
-        params['use_mfcc'] = False
+        params['use_ngcc'] = True
 
         params['predict_tdoa'] = False
         params['lambda'] = 0.0 # set to 1.0 to only train tdoa, and 0.0 to only train SELD
