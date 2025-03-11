@@ -37,18 +37,18 @@ class MSELoss_ADPIT(object):
             # target의 거리가 0보다 크면 (로스 / 거리) 즉, 거리가 멀어질 수록 로스의 크기를 줄임
             # MSE Loss -> Loss의 distance 부분을 해당 부분의 target 값으로 나누는 방식으로 정규화함.
             
-            #loss[:, :, 3] = torch.where(target[:, :, 3] > 0., loss[:, :, 3] / (target[:, :, 3] + self.eps), loss[:, :, 3])
-            #loss[:, :, 7] = torch.where(target[:, :, 7] > 0., loss[:, :, 7] / (target[:, :, 7] + self.eps), loss[:, :, 7])
-            #loss[:, :, 11] = torch.where(target[:, :, 11] > 0., loss[:, :, 11] / (target[:, :, 11] + self.eps), loss[:, :, 11])
+            loss[:, :, 3] = torch.where(target[:, :, 3] > 0., loss[:, :, 3] / (target[:, :, 3] + self.eps), loss[:, :, 3])
+            loss[:, :, 7] = torch.where(target[:, :, 7] > 0., loss[:, :, 7] / (target[:, :, 7] + self.eps), loss[:, :, 7])
+            loss[:, :, 11] = torch.where(target[:, :, 11] > 0., loss[:, :, 11] / (target[:, :, 11] + self.eps), loss[:, :, 11])
 
-            #loss[:, :, 3] = self.rel_dist_weight * loss[:, :, 3]
-            #loss[:, :, 7] = self.rel_dist_weight * loss[:, :, 7]
-            #loss[:, :, 11] = self.rel_dist_weight * loss[:, :, 11]
+            loss[:, :, 3] = self.rel_dist_weight * loss[:, :, 3]
+            loss[:, :, 7] = self.rel_dist_weight * loss[:, :, 7]
+            loss[:, :, 11] = self.rel_dist_weight * loss[:, :, 11]
 
             # sqrt 사용 -> 성능 별로
-            loss[:, :, 3] = torch.where(target[:, :, 3] > 0., loss[:, :, 3] / torch.sqrt(target[:, :, 3] + self.eps), loss[:, :, 3])
-            loss[:, :, 7] = torch.where(target[:, :, 7] > 0., loss[:, :, 7] / torch.sqrt(target[:, :, 7] + self.eps), loss[:, :, 7])
-            loss[:, :, 11] = torch.where(target[:, :, 11] > 0., loss[:, :, 11] / torch.sqrt(target[:, :, 11] + self.eps), loss[:, :, 11])
+            #loss[:, :, 3] = torch.where(target[:, :, 3] > 0., loss[:, :, 3] / torch.sqrt(target[:, :, 3] + self.eps), loss[:, :, 3])
+            #loss[:, :, 7] = torch.where(target[:, :, 7] > 0., loss[:, :, 7] / torch.sqrt(target[:, :, 7] + self.eps), loss[:, :, 7])
+            #loss[:, :, 11] = torch.where(target[:, :, 11] > 0., loss[:, :, 11] / torch.sqrt(target[:, :, 11] + self.eps), loss[:, :, 11])
 
 
 

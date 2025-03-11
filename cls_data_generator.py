@@ -26,7 +26,7 @@ class DataGenerator(object):
         self._per_file = per_file
         self._is_eval = is_eval
         self._splits = np.array(split)
-        self.wav_chunks = params['raw_chunks'] and not params['saved_chunks']
+        self.wav_chunks = params['raw_chunks'] and not params['saved_chunks'] # Inference 시 True
 
         if per_file:
             self._batch_size = params['eval_batch_size']

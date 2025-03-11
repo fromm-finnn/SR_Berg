@@ -447,9 +447,9 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
                 data, vid_feat, target = values
                 data, vid_feat, target = torch.tensor(data).to(device).float(), torch.tensor(vid_feat).to(device).float(), torch.tensor(target).to(device).float()
                 output = model(data, vid_feat)
-
             latency = time.time() - start_time
             all_latency.append(latency)
+
             if criterion_tdoa is not None:
                 loss1 = criterion(output, target)
                 loss2, acc = criterion_tdoa(output_tdoa, target)
@@ -544,7 +544,7 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
 
         test_loss /= nb_test_batches
         avg_latency = sum(all_latency) / len(all_latency)
-        print(f"🔥 Average Latency: {avg_latency:.4f} seconds") 
+        print(f"Average Latency: {avg_latency:.4f} seconds") 
     return test_loss
 
 
@@ -802,6 +802,7 @@ def main(argv):
             val_loss = np.nan
 
             for epoch_cnt in range(nb_epoch):
+                break
                 
                 # ---------------------------------------------------------------------
                 # Evaluate on unseen test data
@@ -832,14 +833,14 @@ def main(argv):
                     if val_F >= best_F:
                         best_val_epoch, best_ER, best_F, best_LE, best_LR, best_seld_scr, best_dist_err = epoch_cnt, val_ER, val_F, val_LE, val_LR, val_seld_scr, val_dist_err
                         best_rel_dist_err = val_rel_dist_err
-                        torch.save(model.state_dict(), model_name)
+                        torch.save(model.module.state_dict(), model_name) #DataParrel 사용 시 
                         patience_cnt = 0
                     else:
                         patience_cnt += params['eval_freq']
 
                     if epoch_cnt == nb_epoch - 1:
                         log_string("saving final model")
-                        torch.save(model.state_dict(), model_name_final)
+                        torch.save(model.module.state_dict(), model_name_final)
 
                 # Print stats
                 log_string(

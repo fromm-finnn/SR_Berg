@@ -61,9 +61,9 @@ def get_params(argv='1'):
         nb_fnn_layers=1,
         fnn_size=128,  # FNN contents, length of list = number of layers, list value = number of nodes
 
-        nb_epochs=100,  # Train for maximum epochs
+        nb_epochs=50,  # Train for maximum epochs
         eval_freq=25, # evaluate every x epochs
-        lr=1e-5,
+        lr=1e-4,
         final_lr=1e-5, # final learning rate in cosine scheduler
         weight_decay=0.05,
         predict_tdoa=False,
@@ -261,7 +261,7 @@ def get_params(argv='1'):
 
         params['finetune_mode'] = True
         params['raw_chunks'] = True
-        params['pretrained_model_weights'] = 'models/333_cst-3t16c.h5' 
+        params['pretrained_model_weights'] = 'models_audio/333_new_dist_dev_split0_multiaccdoa_mic_gcc_model.h5' 
         params['dataset'] = 'mic'
         params['n_mics'] = 4
         params['ngcc_channels'] = 32

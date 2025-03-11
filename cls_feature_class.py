@@ -37,7 +37,7 @@ class FeatureClass:
         self.saved_chunks = params['saved_chunks'] #audio에서 다이렉트로 추출
         self._feat_label_dir = params['feat_label_dir']
         self._dataset_dir = params['dataset_dir']
-        self._dataset_combination = '{}_{}'.format(params['dataset'], 'eval' if is_eval else 'dev') #eval -> dev
+        self._dataset_combination = '{}_{}'.format(params['dataset'], 'eval' if is_eval else 'dev')
         self._aud_dir = os.path.join(self._dataset_dir, self._dataset_combination)
 
         self._desc_dir = None if is_eval else os.path.join(self._dataset_dir, 'metadata_dev')
