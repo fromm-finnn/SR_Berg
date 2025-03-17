@@ -8,6 +8,7 @@ Download the dev dataset from here: [**Sony-TAu Realistic Spatial Soundscapes 20
 
 Unzip the data (mic_dev, metadata_dev, foa_dev) into a folder named "data_2024" and set the folder structure as shown below:
 
+```
 SR_BERG
 ├── cst_former
 ├── logs
@@ -15,7 +16,7 @@ SR_BERG
     ├── foa_dev
     ├── metadata_dev
     └── mic_dev
-
+```
 
 
 ## 2. Feature Extraction
