@@ -7,12 +7,19 @@ pip install -r requirements.txt
 Download the dev dataset from here: [**Sony-TAu Realistic Spatial Soundscapes 2023 (STARSS23)**](https://doi.org/10.5281/zenodo.7709052) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7709052.svg)](https://doi.org/10.5281/zenodo.7709052)
 
 Unzip the data (mic_dev, metadata_dev, foa_dev) into a folder named "data_2024" and set the folder structure as shown below:
+
 -SR_BERG
+
     |_ cst_former
+
     |_ logs
+
     |_ data_2024
+
         |_foa_dev
+
         |_metadata_dev
+        
         |_mic_dev
 
 
