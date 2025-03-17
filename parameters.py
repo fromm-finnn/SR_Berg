@@ -253,14 +253,14 @@ def get_params(argv='1'):
         params['ChAtten_ULE'] = True
         params['CMT_block'] = True
 
-        params["f_pool_size"] = [1, 1, 1] # Large version uses [1, 1, 1]
+        params["f_pool_size"] = [1, 2, 2] # Large version uses [1, 1, 1]
         params['t_pool_size'] = [1,1, params['feature_label_resolution']]
         params['nb_fnn_layers'] = 1
         params['fnn_size'] = 256
 
         params['finetune_mode'] = True
         params['raw_chunks'] = True
-        params['pretrained_model_weights'] = 'models/333_cst-3t16c-large.h5' 
+        params['pretrained_model_weights'] = 'models/333_cst-3t16c.h5' 
         params['dataset'] = 'mic'
         params['n_mics'] = 4
         params['ngcc_channels'] = 32

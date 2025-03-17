@@ -442,7 +442,7 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
     file_cnt = 0
     with torch.no_grad():
         for values in data_generator.generate():
-            if len(values) == 2:
+            if len(values) == 2: #only audio dataset
                 data, target = values
                 data, target = torch.tensor(data).to(device).float(), torch.tensor(target).to(device).float()
                 bs = params['batch_size']
@@ -452,21 +452,21 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
                     output_tdoa = [] 
                     for cnt in range(0, max_cnt):
                         this_data = data[cnt*bs:(cnt+1)*bs]
-                        if criterion_tdoa is not None:
+                        if criterion_tdoa is not None: #TDOA 학습 시
                             this_output, this_output_tdoa = model(this_data)
                             output.append(this_output)
                             output_tdoa.append(this_output_tdoa)
-                        else:
+                        else: #CST-Former 학습 시
                             this_output = model(this_data)
                             output.append(this_output)
                     
                     this_data = data[(cnt+1)*bs:]
-                    if criterion_tdoa is not None:
+                    if criterion_tdoa is not None:#TDOA 학습 시
                         this_output, this_output_tdoa = model(this_data)
                         output.append(this_output)
                         output_tdoa.append(this_output_tdoa)
                         output_tdoa = torch.cat(output_tdoa, dim=0)
-                    else:
+                    else:#CST-Former 학습 시
                         this_output = model(this_data)
                         output.append(this_output)
                     
@@ -476,15 +476,15 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
                     if criterion_tdoa is not None:
                         output, output_tdoa = model(data)
                     else:
-                        output = model(data) #doa
+                        output = model(data) 
  
-            elif len(values) == 3:
+            elif len(values) == 3: #audio + visual dataset
                 data, vid_feat, target = values
                 data, vid_feat, target = torch.tensor(data).to(device).float(), torch.tensor(vid_feat).to(device).float(), torch.tensor(target).to(device).float()
                 output = model(data, vid_feat)
             loss = criterion(output, target)
 
-            if params['multi_accdoa'] is True:
+            if params['multi_accdoa'] is True: #하나의 오디오에 여러 개의 음성 존재할 경우
                 sed_pred0, doa_pred0, dist_pred0, sed_pred1, doa_pred1, dist_pred1, sed_pred2, doa_pred2, dist_pred2 = get_multi_accdoa_labels(output.detach().cpu().numpy(), params['unique_classes'])
                 sed_pred0 = reshape_3Dto2D(sed_pred0)
                 doa_pred0 = reshape_3Dto2D(doa_pred0)
@@ -500,7 +500,7 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
                 sed_pred = reshape_3Dto2D(sed_pred)
                 doa_pred = reshape_3Dto2D(doa_pred)
 
-            # dump SELD results to the correspondin file
+            # dump SELD results to the correspondin file (results_audio folder에 csv 형태로 저장)
 
             output_file = os.path.join(dcase_output_folder, test_filelist[file_cnt].replace('.npy', '.csv'))
             file_cnt += 1
@@ -581,16 +581,16 @@ def train_epoch(data_generator, optimizer, model, criterion, params, device, cri
     tdoa_acc_ma = -1
     for values in data_generator.generate():
         # load one batch of data
-        if len(values) == 2:
+        if len(values) == 2: #only audio data 사용 시
             data, target = values
             data, target = torch.tensor(data).to(device).float(), torch.tensor(target).to(device).float()
             
             optimizer.zero_grad()
-            if criterion_tdoa is not None:
+            if criterion_tdoa is not None: #TDOA 학습 시
                 output, output_tdoa = model(data)
             else:
                 output = model(data)
-        elif len(values) == 3:
+        elif len(values) == 3: #audio + video data 사용 시
             data, vid_feat, target = values
             data, vid_feat, target = torch.tensor(data).to(device).float(), torch.tensor(vid_feat).to(device).float(), torch.tensor(target).to(device).float()
 
@@ -598,8 +598,8 @@ def train_epoch(data_generator, optimizer, model, criterion, params, device, cri
             output = model(data, vid_feat)
                     
         if criterion_tdoa is not None:
-            loss1 = criterion(output, target)
-            loss2, acc = criterion_tdoa(output_tdoa, target)
+            loss1 = criterion(output, target) #MSE Loss 
+            loss2, acc = criterion_tdoa(output_tdoa, target) #TDOA Loss
             if tdoa_loss_ma == -1:
                 if not torch.isnan(loss2):
                     tdoa_loss_ma = loss2.item()
@@ -685,6 +685,7 @@ def main(argv):
         for key, value in params.items():
             log_string("\t{}: {}".format(key, value))
 
+        ###해당 dcase task 연도에 맞는 dataset 설정
         if '2020' in params['dataset_dir']:
             test_splits = [1]
             val_splits = [2]
@@ -702,11 +703,11 @@ def main(argv):
         elif '2023' in params['dataset_dir']:
             test_splits = [[4]]
             val_splits = [[4]]
-            train_splits = [[1, 2, 3]] 
-        elif '2024' in params['dataset_dir']:
+            train_splits = [[1, 2, 3]]  
+        elif '2024' in params['dataset_dir']: 
             test_splits = [[4]]
-            val_splits = [[4]]
-            train_splits = [[3]]# add split 1 and 2 to training, if you have downloaded simulated data
+            val_splits = [[4]]   # 4 : Fold number of audio file 
+            train_splits = [[3]] # 3 : Fold number of audio file / ex) fold3_room21_mix001.wav
 
         else:
             log_string('ERROR: Unknown dataset splits')
@@ -727,7 +728,7 @@ def main(argv):
             loc_output = 'multiaccdoa' if params['multi_accdoa'] else 'accdoa'
 
             cls_feature_class.create_folder(params['model_dir'])
-            unique_name = '{}_{}_{}_split{}_{}_{}'.format(
+            unique_name = '{}_{}_{}_split{}_{}_{}'.format(      
                 task_id, job_id, params['mode'], split_cnt, loc_output, loc_feat
             )
             model_name = '{}_model.h5'.format(os.path.join(params['model_dir'], unique_name))
@@ -752,8 +753,11 @@ def main(argv):
                     state_dict = torch.load(params['pretrained_model_weights'], map_location='cpu')
                     model.load_state_dict(state_dict, strict=True)
                 
+                #multi GPU 사용 시
                 model = nn.DataParallel(model).to(device)
-                
+                #single GPU 사용 시 
+                #model = model.to(device)
+
                 # 샘플 단위 latency 측정
                 log_string('Measuring sample latency...')
                 avg_latency = measure_sample_latency(model, device, data_in, num_runs=100)
@@ -781,20 +785,24 @@ def main(argv):
                 return 0
 
             # Load train and validation data
-            log_string('Loading training dataset:')
+            log_string('Loading training dataset:') 
             log_string(str(train_splits[split_cnt]))
+            #학습 데이터 로드
             data_gen_train = cls_data_generator.DataGenerator(
                 params=params, split=train_splits[split_cnt]
             )
 
+            #검증 데이터 로드
             log_string('Loading validation dataset:')
             log_string(str(val_splits[split_cnt]))
             data_gen_val= cls_data_generator.DataGenerator(
                 params=params, split=val_splits[split_cnt], shuffle=False, per_file=True
             )
 
+            #모델 선언
             model, data_in, vid_data_in, data_out = get_model_and_sizes(params, data_gen_train, device)
 
+            #Pre-trained 가중치 Load
             if params['finetune_mode']:
                 log_string('Running in finetuning mode. Initializing the model to the weights - {}'.format(params['pretrained_model_weights']))
                 state_dict = torch.load(params['pretrained_model_weights'], map_location='cpu')
@@ -806,7 +814,10 @@ def main(argv):
                     state_dict = {k: v for k, v in state_dict.items() if
                         (k in model_dict) and (model_dict[k].shape == state_dict[k].shape)}
                 model.load_state_dict(state_dict, strict=True)
+                #multi gpu 사용시
                 model = nn.DataParallel(model).to(device)
+                #single gpu 사용시
+                #mode = mode.to(device)
                 
 
 
@@ -826,7 +837,7 @@ def main(argv):
             cls_feature_class.delete_and_create_folder(dcase_output_val_folder)
             log_string('Dumping recording-wise val results in: {}'.format(dcase_output_val_folder))
 
-            if params['predict_tdoa']:
+            if params['predict_tdoa']: #TDOA 학습 시 사용
                 criterion_tdoa = TdoaLoss(fs=params['fs'], max_tau=params['max_tau'], tracks=params['tracks'])
             else:
                 criterion_tdoa = None
@@ -852,16 +863,16 @@ def main(argv):
             {'params': [p for n, p in model_parameters if any(
                 nd in n for nd in no_decay)], 'weight_decay': 0.0}
             ]
-
+            #optimizer 설정
             optimizer = optim.AdamW(optimizer_grouped_parameters, lr=params['lr'])
-
+            #shceduler 설정
             scheduler = optim.lr_scheduler.CosineAnnealingLR(
                             optimizer, T_max=nb_epoch, eta_min=params['final_lr'])
             if not params['predict_tdoa']:
                 scheduler = GradualWarmupScheduler(optimizer, multiplier=1, total_epoch=params['warmup'], after_scheduler=scheduler)
             optimizer.zero_grad()
             optimizer.step()
-
+            #Loss 설정 한 audio에 여러 음성
             if params['multi_accdoa'] is True:
                 criterion = seldnet_model.MSELoss_ADPIT(relative_dist=params['relative_dist'], no_dist=params['no_dist'])
             else:
@@ -872,30 +883,30 @@ def main(argv):
             val_time = np.nan
             val_loss = np.nan
 
+            #학습 시작
             for epoch_cnt in range(nb_epoch):
-                break
                 
                 # ---------------------------------------------------------------------
                 # Evaluate on unseen test data
                 # ---------------------------------------------------------------------
                 start_time = time.time()
-                train_loss = train_epoch(data_gen_train, optimizer, model, criterion, params, device, criterion_tdoa)
+                train_loss = train_epoch(data_gen_train, optimizer, model, criterion, params, device, criterion_tdoa) #학습
                 scheduler.step()
                 train_time = time.time() - start_time
-                if params['predict_tdoa']:
+                if params['predict_tdoa']: #TDOA 모델 학습 시
                     log_string("saving TDOA model")
-                    torch.save(model.state_dict(), model_name_final)
+                    torch.save(model.module.state_dict(), model_name_final)
                 # ---------------------------------------------------------------------
                 # VALIDATION
                 # ---------------------------------------------------------------------
-
+                #정해진 Epoch 수 마다 Validation 진행
                 if (epoch_cnt > 0 and epoch_cnt % params['eval_freq'] == 0) or epoch_cnt == 0 or epoch_cnt == nb_epoch-1:
                     start_time = time.time()
                     #device = torch.device('cpu')
                     #model = model.to(device)
                     val_loss = test_epoch(data_gen_val, model, criterion, dcase_output_val_folder, params, device, criterion_tdoa)
                     # Calculate the DCASE 2021 metrics - Location-aware detection and Class-aware localization scores
-
+                    
                     val_ER, val_F, val_LE, val_dist_err, val_rel_dist_err, val_LR, val_seld_scr, classwise_val_scr = score_obj.get_SELD_Results(dcase_output_val_folder)
 
                     val_time = time.time() - start_time
@@ -904,14 +915,20 @@ def main(argv):
                     if val_F >= best_F:
                         best_val_epoch, best_ER, best_F, best_LE, best_LR, best_seld_scr, best_dist_err = epoch_cnt, val_ER, val_F, val_LE, val_LR, val_seld_scr, val_dist_err
                         best_rel_dist_err = val_rel_dist_err
-                        torch.save(model.module.state_dict(), model_name) #DataParrel 사용 시 
+                        #multi GPU 사용시
+                        torch.save(model.module.state_dict(), model_name) 
+                        #single GPU 사용시
+                        #torch.save(model.state_dict(), model_name)
                         patience_cnt = 0
                     else:
                         patience_cnt += params['eval_freq']
 
                     if epoch_cnt == nb_epoch - 1:
                         log_string("saving final model")
+                        #multi GPU 사용시
                         torch.save(model.module.state_dict(), model_name_final)
+                        #single GPU 사용시
+                        #torch.save(model.state_dict(), model_name)
 
                 # Print stats
                 log_string(
@@ -933,12 +950,13 @@ def main(argv):
             # ---------------------------------------------------------------------
             # Evaluate on unseen test data
             # ---------------------------------------------------------------------
-            # don't load best model, this is cherry picking
+            # 마지막 모델을 load하여 Evaluation 진행
             print("TEST")
             log_string('Not loading best model weights, using final model weights instead')
             #log_string('Load best model weights')
             #model.load_state_dict(torch.load(model_name, map_location='cpu'))
 
+            #데이터 로드
             log_string('Loading unseen test dataset:')
             data_gen_test = cls_data_generator.DataGenerator(
                 params=params, split=test_splits[split_cnt], shuffle=False, per_file=True,
@@ -954,7 +972,7 @@ def main(argv):
 
             use_jackknife=True
             test_ER, test_F, test_LE, test_dist_err, test_rel_dist_err, test_LR, test_seld_scr, classwise_test_scr = score_obj.get_SELD_Results(dcase_output_test_folder, is_jackknife=use_jackknife )
-
+            #SELD 지표 출력
             log_string('SELD score (early stopping metric): {:0.2f} {}'.format(test_seld_scr[0] if use_jackknife else test_seld_scr, '[{:0.2f}, {:0.2f}]'.format(test_seld_scr[1][0], test_seld_scr[1][1]) if use_jackknife else ''))
             log_string('SED metrics: F-score: {:0.1f} {}'.format(100* test_F[0]  if use_jackknife else 100* test_F, '[{:0.2f}, {:0.2f}]'.format(100* test_F[1][0], 100* test_F[1][1]) if use_jackknife else ''))
             log_string('DOA metrics: Angular error: {:0.1f} {}'.format(test_LE[0] if use_jackknife else test_LE, '[{:0.2f} , {:0.2f}]'.format(test_LE[1][0], test_LE[1][1]) if use_jackknife else ''))
@@ -996,7 +1014,7 @@ def main(argv):
         print('Loading evaluation dataset:')
 
         data_gen_eval = cls_data_generator.DataGenerator(
-            params=params, shuffle=False, per_file=True, is_eval=True) #UNSEEN DATA is_eval = True dataset 내부 eval 포함되어 있는 데이터셋 불러옴
+            params=params, shuffle=False, per_file=True, is_eval=True)
 
 
         model, data_in, vid_data_in, data_out = get_model_and_sizes(params, data_gen_eval, device)
@@ -1014,17 +1032,6 @@ def main(argv):
 
         eval_epoch(data_gen_eval, model, dcase_output_test_folder, params, device)
         
-'''        
-        score_obj = ComputeSELDResults(params)
-        use_jackknife=True
-        eval_ER, eval_F, eval_LE, eval_dist_err, eval_rel_dist_err, eval_LR, eval_seld_scr, classwise_eval_scr = score_obj.get_SELD_Results(dcase_output_test_folder, is_jackknife=use_jackknife )
-
-        print('SELD score (early stopping metric): {:0.2f} {}'.format(eval_seld_scr[0] if use_jackknife else eval_seld_scr, '[{:0.2f}, {:0.2f}]'.format(eval_seld_scr[1][0], eval_seld_scr[1][1]) if use_jackknife else ''))
-        print('SED metrics: F-score: {:0.1f} {}'.format(100* eval_F[0]  if use_jackknife else 100* eval_F, '[{:0.2f}, {:0.2f}]'.format(100* eval_F[1][0], 100* eval_F[1][1]) if use_jackknife else ''))
-        print('DOA metrics: Angular error: {:0.1f} {}'.format(eval_LE[0] if use_jackknife else eval_LE, '[{:0.2f} , {:0.2f}]'.format(eval_LE[1][0], eval_LE[1][1]) if use_jackknife else ''))
-        print('Distance metrics: {:0.2f} {}'.format(eval_dist_err[0] if use_jackknife else eval_dist_err, '[{:0.2f} , {:0.2f}]'.format(eval_dist_err[1][0], eval_dist_err[1][1]) if use_jackknife else ''))
-        print('Relative Distance metrics: {:0.2f} {}'.format(eval_rel_dist_err[0] if use_jackknife else eval_rel_dist_err, '[{:0.2f} , {:0.2f}]'.format(eval_rel_dist_err[1][0], eval_rel_dist_err[1][1]) if use_jackknife else ''))
-'''
                     
 if __name__ == "__main__":
     try:
