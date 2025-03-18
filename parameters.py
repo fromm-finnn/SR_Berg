@@ -146,29 +146,31 @@ def get_params(argv='1'):
 
     elif argv == '9': # TDOA pre-training
         print("RAW AUDIO CHUNKS w/ NGCC model + multi ACCDOA, TDOA-pretraining\n")
-        params['label_sequence_length'] = 1 # use only one time frame for tdoa training
+        # 특징 추출(batch_feature_extraction.py)을 위한 설정
+        # TDOA(Time Difference of Arrival) 사전 학습 모델을 위한 설정
+        params['label_sequence_length'] = 1 # TDOA 학습을 위해 한 프레임만 사용
         params['feature_sequence_length'] = params['label_sequence_length'] * params['feature_label_resolution']
-        params['raw_chunks'] = True
-        params['pretrained_model_weights'] = 'models/9_tdoa-3tracks-16channels.h5'
+        params['raw_chunks'] = True  # 원본 오디오 청크 사용 
+        params['pretrained_model_weights'] = 'models/9_tdoa-3tracks-16channels.h5'  # 사전 학습된 모델 가중치 파일
         params['quick_test'] = False
-        params['dataset'] = 'mic'
-        params['use_salsalite'] = False
-        params['multi_accdoa'] = True
-        params['n_mics'] = 4
-        params['model'] = 'ngccmodel'
-        params['ngcc_channels'] = 32
-        params['ngcc_out_channels'] = 16 
-        params['saved_chunks'] = True
-        params['use_mel'] = False
-        params['nb_epochs'] = 1
-        params['predict_tdoa'] = True
-        params['lambda'] = 1.0 # set to 1.0 to only train tdoa, and 0.0 to only train SELD
-        params['max_tau'] = 6
-        params['tracks'] = 3
-        params['fixed_tdoa'] = False
-        params['batch_size'] = 32
-        params['lr'] = 1e-4
-        params['warmup'] = 0
+        params['dataset'] = 'mic'  # 마이크로폰 데이터셋 사용
+        params['use_salsalite'] = False  # SALSA-Lite 특징 대신 GCC 특징 사용
+        params['multi_accdoa'] = True  # 다중 ACCDOA(Angular and Cartesian Distance of Arrival) 방식 사용
+        params['n_mics'] = 4  # 마이크 개수
+        params['model'] = 'ngccmodel'  # NGCC(Normalized Generalized Cross-Correlation) 모델 사용
+        params['ngcc_channels'] = 32  # NGCC 입력 채널 수
+        params['ngcc_out_channels'] = 16  # NGCC 출력 채널 수
+        params['saved_chunks'] = True  # 저장된 오디오 청크 사용
+        params['use_mel'] = False  # 멜 스펙트로그램 비사용
+        params['nb_epochs'] = 1  # 학습 에포크 수
+        params['predict_tdoa'] = True  # TDOA 예측 활성화
+        params['lambda'] = 1.0 # TDOA만 학습하도록 람다값을 1.0으로 설정 (0.0이면 SELD만 학습)
+        params['max_tau'] = 6  # 최대 시간 지연값
+        params['tracks'] = 3  # 동시에 추적할 소리 개수
+        params['fixed_tdoa'] = False  # 고정된 TDOA 사용하지 않음
+        params['batch_size'] = 32  # 배치 크기
+        params['lr'] = 1e-4  # 학습률
+        params['warmup'] = 0  # 워밍업 에포크 없음
 
     elif argv == '10': # fine-tuning from tdoa-pretrained model
         print("RAW AUDIO CHUNKS w/ NGCC model + multi ACCDOA, pre-trained TDOA features\n")
@@ -244,36 +246,42 @@ def get_params(argv='1'):
 
     elif argv == '333': #CST former with NGCC-PHAT
         print("CST-Former Large w/ NGCC model + multi ACCDOA")
+        # CST-Former 모델과 NGCC 특징을 사용한 학습 설정
+        # README에서 설명한 주요 실행 ID (train_seldnet.py 333 my_experiment 명령어)
         params = get_params()
-        params['model'] = 'cstformer'
-        params['multi_accdoa'] = True
-        params['t_pooling_loc'] = 'front'
+        params['model'] = 'cstformer'  # CST-Former 모델 사용 (Channel-Spectral-Temporal Transformer)
+        params['multi_accdoa'] = True  # 다중 ACCDOA 방식 활성화
+        params['t_pooling_loc'] = 'front'  # 시간 풀링 위치 설정
 
-        params['FreqAtten'] = True
-        params['ChAtten_ULE'] = True
-        params['CMT_block'] = True
+        # CST-Former 모델 구성 설정
+        params['FreqAtten'] = True  # 주파수 어텐션 활성화
+        params['ChAtten_ULE'] = True  # Unfolded Local Embedding 채널 어텐션 활성화
+        params['CMT_block'] = True  # CMT(Channel Mixing Transformer) 블록 활성화
 
-        params["f_pool_size"] = [1, 2, 2] # Large version uses [1, 1, 1]
-        params['t_pool_size'] = [1,1, params['feature_label_resolution']]
-        params['nb_fnn_layers'] = 1
-        params['fnn_size'] = 256
+        # 풀링 크기 및 레이어 설정
+        params["f_pool_size"] = [1, 2, 2] # 주파수 풀링 사이즈 (Large 버전은 [1, 1, 1] 사용)
+        params['t_pool_size'] = [1,1, params['feature_label_resolution']]  # 시간 풀링 사이즈
+        params['nb_fnn_layers'] = 1  # 피드포워드 신경망 레이어 수
+        params['fnn_size'] = 256  # 피드포워드 신경망 크기
 
-        params['finetune_mode'] = True
-        params['raw_chunks'] = True
-        params['pretrained_model_weights'] = 'models/333_cst-3t16c.h5' 
-        params['dataset'] = 'mic'
-        params['n_mics'] = 4
-        params['ngcc_channels'] = 32
-        params['ngcc_out_channels'] = 16
-        params['saved_chunks'] = True
-        params['use_mel'] = True
-        params['use_ngcc'] = True
+        # 모델 및 데이터 설정
+        params['finetune_mode'] = True  # 미세 조정 모드 활성화
+        params['raw_chunks'] = True  # 원본 오디오 청크 사용
+        params['pretrained_model_weights'] = 'models/333_cst-3t16c.h5'  # 사전 학습된 모델 가중치 (레이턴시 측정용)
+        params['dataset'] = 'mic'  # 마이크로폰 데이터셋 사용
+        params['n_mics'] = 4  # 마이크 개수
+        params['ngcc_channels'] = 32  # NGCC 입력 채널 수
+        params['ngcc_out_channels'] = 16  # NGCC 출력 채널 수
+        params['saved_chunks'] = True  # 저장된 오디오 청크 사용
+        params['use_mel'] = True  # 멜 스펙트로그램 사용
+        params['use_ngcc'] = True  # NGCC 특징 사용
 
-        params['predict_tdoa'] = False
-        params['lambda'] = 0.0 # set to 1.0 to only train tdoa, and 0.0 to only train SELD
-        params['max_tau'] = 6
-        params['tracks'] = 3
-        params['fixed_tdoa'] = True
+        # TDOA 관련 설정
+        params['predict_tdoa'] = False  # TDOA 예측 비활성화
+        params['lambda'] = 0.0 # SELD만 학습하도록 람다값을 0.0으로 설정
+        params['max_tau'] = 6  # 최대 시간 지연값
+        params['tracks'] = 3  # 동시에 추적할 소리 개수
+        params['fixed_tdoa'] = True  # 고정된 TDOA 사용
 
     elif argv == '999':
         print("QUICK TEST MODE\n")

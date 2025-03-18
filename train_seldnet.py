@@ -30,6 +30,15 @@ import random
 def measure_sample_latency(model, device, input_shape, num_runs=100):
     """
     단일 샘플에 대한 latency를 측정하는 간단한 함수
+    
+    Parameters:
+        model: 측정할 모델 (CST-Former)
+        device: 실행 장치 (GPU/CPU)
+        input_shape: 입력 데이터 모양
+        num_runs: 측정 반복 횟수 (기본값: 100)
+    
+    Returns:
+        평균 레이턴시 (초)
     """
     # 임의의 입력 데이터 생성
     sample_data = torch.randn(1, *input_shape[1:]).to(device)
@@ -37,7 +46,7 @@ def measure_sample_latency(model, device, input_shape, num_runs=100):
     # 모델을 평가 모드로 설정
     model.eval()
     
-    # 웜업
+    # 웜업 - GPU 초기화를 위한 첫 실행
     with torch.no_grad():
         _ = model(sample_data)
     
@@ -46,13 +55,13 @@ def measure_sample_latency(model, device, input_shape, num_runs=100):
     with torch.no_grad():
         for _ in range(num_runs):
             if device == 'cuda':
-                torch.cuda.synchronize()
+                torch.cuda.synchronize()  # CUDA 작업 동기화 (정확한 시간 측정을 위함)
             
             start_time = time.time()
             _ = model(sample_data)
             
             if device == 'cuda':
-                torch.cuda.synchronize()
+                torch.cuda.synchronize()  # 모든 CUDA 작업이 완료될 때까지 대기
             
             end_time = time.time()
             latencies.append(end_time - start_time)
@@ -638,7 +647,20 @@ def main(argv):
                                 (default) 1 - uses default parameters
         second input: job_id - (optional) all the output files will be uniquely represented with this.
                               (default) 1
-
+    
+    사용 예시:
+    1. 특징 추출: python batch_feature_extraction.py 9
+       - NGCC+MS 특징을 추출하여 data_2024/seld_feat_label 폴더에 저장
+       - Time Difference of Arrival(TDOA) 사전 학습용 설정
+    
+    2. CST-Former 모델 학습: python train_seldnet.py 333 my_experiment
+       - NGCC+MS 특징을 사용하여 CST-Former 모델 학습
+       - Channel-Spectral-Temporal Transformer 모델 구조 사용
+       - 다중 ACCDOA(Angular and Cartesian Distance of Arrival) 방식
+    
+    3. 레이턴시 측정: python train_seldnet.py 333 latency_check
+       - 사전 학습된 모델의 추론 속도 측정
+       - 측정 후 즉시 종료 (테스트 단계 없음)
     """
     print(argv)
     if len(argv) != 4:
@@ -658,9 +680,14 @@ def main(argv):
 
     # use parameter set defined by user
     task_id = '1' if len(argv) < 2 else argv[1]
+    # task_id가 '9'일 경우: 특징 추출 설정 (batch_feature_extraction.py에서 사용)
+    # task_id가 '333'일 경우: CST-Former 모델 학습 및 레이턴시 측정 설정
     params = parameters.get_params(task_id)
 
     job_id = 1 if len(argv) < 3 else argv[2]
+    # job_id가 'latency_check'일 경우: 모델 레이턴시만 측정하고 종료
+    # job_id가 'my_experiment'일 경우: 모델 학습 진행
+    # job_id가 'check_best'일 경우: 사전 학습된 모델 평가
 
     seed = 42 if len(argv) < 4 else int(argv[3])
 
@@ -735,33 +762,40 @@ def main(argv):
             model_name_final = '{}_model_final.h5'.format(os.path.join(params['model_dir'], unique_name))
             log_string("unique_name: {}\n".format(unique_name))
 
-            # latency_check 명령어 감지
+            # 레이턴시 체크 명령어 감지 (train_seldnet.py 333 latency_check로 실행 시)
             if job_id == 'latency_check':
                 log_string('Performing latency check...')
                 
-                # 데이터 로드
+                # 데이터 로드 - 검증 데이터셋 사용
                 data_gen_val = cls_data_generator.DataGenerator(
                     params=params, split=val_splits[split_cnt], shuffle=False, per_file=True
                 )
                 
-                # 모델 생성
+                # 모델 생성 - parameters.py에서 argv==333 설정 사용
+                # CST-Former 모델 (Channel-Spectral-Temporal Transformer) 생성
                 model, data_in, vid_data_in, data_out = get_model_and_sizes(params, data_gen_val, device)
                 
-                # 모델 가중치 로드
+                # 사전 학습된 모델 가중치 로드 (있는 경우)
                 if params['finetune_mode']:
                     log_string('Loading model weights from: {}'.format(params['pretrained_model_weights']))
                     state_dict = torch.load(params['pretrained_model_weights'], map_location='cpu')
                     model.load_state_dict(state_dict, strict=True)
                 
-                #multi GPU 사용 시
+                # GPU 병렬 처리 설정
                 model = nn.DataParallel(model).to(device)
                 #single GPU 사용 시 
                 #model = model.to(device)
 
-                # 샘플 단위 latency 측정
+                # 모델의 샘플 단위 레이턴시 측정 (100회 반복)
                 log_string('Measuring sample latency...')
                 avg_latency = measure_sample_latency(model, device, data_in, num_runs=100)
                 
+                # 레이턴시 측정 완료 후 프로그램 종료 
+                log_string('Latency check completed. Exiting...')
+                return 0
+                    
+                # 아래 테스트 코드는 주석 처리하여 실행되지 않도록 함
+                """
                 # 테스트 데이터셋에서 평가 수행
                 log_string("\nTEST")
                 log_string("Loading unseen test dataset:")
@@ -772,15 +806,8 @@ def main(argv):
                 dcase_output_test_folder = os.path.join(params['dcase_output_dir'], '{}_{}_test'.format(unique_name, strftime("%Y%m%d%H%M%S", gmtime())))
                 cls_feature_class.delete_and_create_folder(dcase_output_test_folder)
                 log_string('Dumping recording-wise test results in: {}'.format(dcase_output_test_folder))
-                
-                # 테스트 실행
-                if params['multi_accdoa'] is True:
-                    criterion = seldnet_model.MSELoss_ADPIT(relative_dist=params['relative_dist'], no_dist=params['no_dist'])
-                else:
-                    criterion = nn.MSELoss()
-                
-                test_loss = test_epoch(data_gen_test, model, criterion, dcase_output_test_folder, params, device)
-                
+                """
+                    
                 # 프로그램 종료
                 return 0
 
