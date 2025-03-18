@@ -26,7 +26,7 @@ SR_BERG
 python batch_feature_extraction.py 9
 ```
 This result will be saved in the 'seld_feat_label' folder inside the 'data_2024' directory."
-## 3. SELD Training
+## 3. Berg(SELD) Training
 
 
 **Train CST-Former w/ NGCC+MS**
