@@ -27,9 +27,9 @@ CUDA 11.8 또는 12.1이 권장됩니다.
 
 ## 1. Datasets download & Directory setting
 
-Download the dev dataset from here: [**Sony-TAu Realistic Spatial Soundscapes 2023 (STARSS23)**](https://doi.org/10.5281/zenodo.7709052) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7709052.svg)](https://doi.org/10.5281/zenodo.7709052)
+데이터는 다음 링크에서 다운 받으실 수 있습니다.: [**Sony-TAu Realistic Spatial Soundscapes 2023 (STARSS23)**](https://doi.org/10.5281/zenodo.7709052) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7709052.svg)](https://doi.org/10.5281/zenodo.7709052)
 
-Unzip the data (mic_dev, metadata_dev) into a folder named "data_2024" and set the folder structure as shown below:
+데이터를 압축 해제한 후 (mic_dev, metadata_dev) "data_2024" 라는 이름으로 아래 폴더 구조와 동일하게 배치하세요:
 
 ```
 SR_BERG
